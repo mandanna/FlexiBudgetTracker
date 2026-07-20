@@ -1,4 +1,4 @@
-﻿namespace ExpenseTracker.Api.Dtos.RequestDtos.QueryRequest.Paycheck
+﻿namespace ExpenseTracker.Api.Dtos
 {
     public class PaycheckQueryRequest: QueryRequest
     {

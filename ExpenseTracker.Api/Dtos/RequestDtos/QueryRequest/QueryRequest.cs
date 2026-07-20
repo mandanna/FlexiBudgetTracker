@@ -1,4 +1,4 @@
-﻿namespace ExpenseTracker.Api.Dtos.RequestDtos.QueryRequest
+﻿namespace ExpenseTracker.Api.Dtos
 {
     public class QueryRequest
     {

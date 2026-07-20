@@ -1,6 +1,4 @@
-﻿using Azure.Core;
-using ExpenseTracker.Api.Dtos;
-using ExpenseTracker.Api.Dtos.RequestDtos.QueryRequest.Paycheck;
+﻿using ExpenseTracker.Api.Dtos;
 using ExpenseTracker.Api.Interface;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
@@ -51,20 +49,15 @@ namespace ExpenseTracker.Api.Controllers
             });
         }
         [HttpGet("GetPaychecks")]
-        public async Task<IActionResult> GetPaychecks()
+        [ServiceFilter(typeof(ValidationFilter<PaycheckQueryRequest>))]
+        public async Task<IActionResult> GetPaychecks([FromQuery] PaycheckQueryRequest request)
         {
-            var paychecks = await _paycheckService.GetPaychecksAsync();
-            if (paychecks == null) return NotFound(new ApiResponse<List<PaycheckResponse>>
-            {
-                success = false,
-                message = "No paychecks found",
-                data = null
-            });
-            return Ok(new ApiResponse<List<PaycheckResponse>>
+            var paychecks = await _paycheckService.GetPaychecksAsync(request);
+            return Ok(new ApiResponse<PagedResponse<PaycheckResponse>>
             {
                 success = true,
                 message = "Paychecks retrieved successfully",
-                data= paychecks
+                data = paychecks
             });
         }
         [HttpPost("ClosePaycheck")]

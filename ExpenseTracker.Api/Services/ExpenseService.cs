@@ -83,11 +83,51 @@ namespace ExpenseTracker.Api.Services
             };
         }
 
-        public async Task<List<ExpenseResponse>> GetAllExpenses(int paycheckId)
+        public async Task<PagedResponse<ExpenseResponse>> GetAllExpenses(ExpenseQueryRequest request)
         {
-            var expenses = await _context.Expenses
-                .Where(x => x.PaycheckId == paycheckId
-                && x.Paycheck.UserId == _currentUserService.UserId)
+            // The paycheck join is the authorization boundary: an expense is only ever reachable
+            // through a paycheck the current user owns.
+            IQueryable<Expense> query = _context.Expenses
+                .Where(x => x.Paycheck.UserId == _currentUserService.UserId);
+
+            if (request.PaycheckId.HasValue)
+            {
+                query = query.Where(x => x.PaycheckId == request.PaycheckId.Value);
+            }
+
+            if (request.CategoryId.HasValue)
+            {
+                query = query.Where(x => x.CategoryId == request.CategoryId.Value);
+            }
+
+            if (request.FromDate.HasValue)
+            {
+                query = query.Where(x => x.ExpenseDate >= request.FromDate.Value);
+            }
+
+            if (request.ToDate.HasValue)
+            {
+                query = query.Where(x => x.ExpenseDate <= request.ToDate.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Search))
+            {
+                var search = request.Search.Trim();
+                query = query.Where(x => x.Description.Contains(search));
+            }
+
+            query = ApplySort(query, request.SortBy, request.Descending);
+
+            var totalRecords = await query.CountAsync();
+
+            // The validator already enforces these bounds over HTTP; clamping here keeps the
+            // method safe for any caller that bypasses the request pipeline.
+            var page = Math.Max(1, request.Page);
+            var pageSize = Math.Clamp(request.PageSize, 1, 100);
+
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .Select(x => new ExpenseResponse
                 {
                     Id = x.Id,
@@ -99,10 +139,39 @@ namespace ExpenseTracker.Api.Services
                     CategoryName = x.Category != null ? x.Category.Name : "Uncategorized"
                 })
                 .ToListAsync();
-            return expenses;
+
+            var totalPages = (int)Math.Ceiling(totalRecords / (double)pageSize);
+
+            _logger.LogInformation(
+                "Retrieved {Count} expense(s) (page {Page} of {TotalPages}, {TotalRecords} total) for user {UserId}.",
+                items.Count, page, totalPages, totalRecords, _currentUserService.UserId);
+
+            return new PagedResponse<ExpenseResponse>
+            {
+                Items = items,
+                Page = page,
+                PageSize = pageSize,
+                TotalRecords = totalRecords,
+                TotalPages = totalPages
+            };
         }
 
-       
+        private static IQueryable<Expense> ApplySort(IQueryable<Expense> query, string? sortBy, bool descending)
+        {
+            // A whitelist switch rather than reflection or dynamic LINQ: every branch is a
+            // compile-time-checked property access, so no user-supplied string can reach an
+            // unintended property. Unrecognised values are rejected by the validator before
+            // they get here; the default branch orders by newest expense first.
+            return sortBy?.Trim().ToLowerInvariant() switch
+            {
+                "amount" => descending ? query.OrderByDescending(x => x.Amount) : query.OrderBy(x => x.Amount),
+                "description" => descending ? query.OrderByDescending(x => x.Description) : query.OrderBy(x => x.Description),
+                "categoryname" => descending ? query.OrderByDescending(x => x.Category!.Name) : query.OrderBy(x => x.Category!.Name),
+                "expensedate" => descending ? query.OrderByDescending(x => x.ExpenseDate) : query.OrderBy(x => x.ExpenseDate),
+                _ => query.OrderByDescending(x => x.ExpenseDate)
+            };
+        }
+
 
         public async Task<ExpenseResponse> GetExpenseAsync(int paycheckId, int expenseId)
         {

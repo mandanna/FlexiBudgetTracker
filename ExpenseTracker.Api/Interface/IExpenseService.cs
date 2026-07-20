@@ -7,7 +7,7 @@ namespace ExpenseTracker.Api.Interface
         Task<ExpenseResponse?> CreateExpenseAsync(int paycheckId, CreateExpenseRequest createExpenseRequest);
         Task<ExpenseResponse> GetExpenseAsync(int paycheckId, int expenseId);
 
-        Task<List<ExpenseResponse>> GetAllExpenses(int paycheckId);
+        Task<PagedResponse<ExpenseResponse>> GetAllExpenses(ExpenseQueryRequest request);
         Task<bool> RemoveExpenseAsync(int paycheckId, int expenseId);
         Task<ExpenseResponse?> UpdateExpenseAsync(int paycheckId, int expenseId, UpdateExpenseRequest updateExpenseRequest);
 

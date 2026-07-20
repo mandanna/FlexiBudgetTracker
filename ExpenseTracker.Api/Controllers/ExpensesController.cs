@@ -91,19 +91,10 @@ namespace ExpenseTracker.Api.Controllers
         }
 
         [HttpGet("expenses")]
-        public async Task<IActionResult> GetAllExpenses(int paycheckId)
+        public async Task<IActionResult> GetAllExpenses([FromQuery] ExpenseQueryRequest expenseQueryRequest)
         {
-            var expenses = await _expenseService.GetAllExpenses(paycheckId);
-            if (expenses == null)
-            {
-                return NotFound(new ApiResponse<List<ExpenseResponse>>
-                {
-                    data = null,
-                    message = "No expenses found for the given paycheck.",
-                    success = false
-                });
-            }
-            return Ok(new ApiResponse<List<ExpenseResponse>>
+            var expenses = await _expenseService.GetAllExpenses(expenseQueryRequest);
+            return Ok(new ApiResponse<PagedResponse<ExpenseResponse>>
             {
                 success = true,
                 message = "Expenses retrieved successfully",

@@ -1,7 +1,8 @@
-﻿namespace ExpenseTracker.Api.Dtos.RequestDtos.QueryRequest.Expense
+﻿namespace ExpenseTracker.Api.Dtos
 {
     public class ExpenseQueryRequest : QueryRequest
     {
+        public string? Search { get; set; }
         public int? CategoryId { get; set; }
 
         public int? PaycheckId { get; set; }
