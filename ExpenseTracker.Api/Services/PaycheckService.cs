@@ -186,5 +186,44 @@ namespace ExpenseTracker.Api.Services
 
 
         }
+
+        public async Task<PaycheckResponse> UpdatePaycheckAsync(int id, UpdatePaycheckRequest request)
+        {
+            var paycheck = await _context.Paychecks.FirstOrDefaultAsync(x => x.Id == id && x.UserId == _currentUserService.UserId);
+            if (paycheck == null)
+                throw new NotFoundException("Paycheck not found.");
+            if (paycheck.IsClosed)
+                throw new BusinessRuleException("Cannot modify a closed paycheck.");
+
+            var totalExpenses = await _context.Expenses.Where(e => e.PaycheckId == id).SumAsync(e => e.Amount);
+            if (request.Amount < totalExpenses)
+                throw new BusinessRuleException(
+                    $"Amount cannot be less than the expenses already recorded ({totalExpenses}).");
+
+            paycheck.Description = request.Description;
+            paycheck.Amount = request.Amount;
+            paycheck.ReceivedDate = request.ReceivedDate;
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Paycheck {PaycheckId} updated.", paycheck.Id);
+
+            return new PaycheckResponse
+            {
+                Id = paycheck.Id,
+                Description = paycheck.Description,
+                Amount = paycheck.Amount,
+                ReceivedDate = paycheck.ReceivedDate,
+                IsClosed = paycheck.IsClosed
+            };
+        }
+
+        public async Task DeletePaycheckAsync(int id)
+        {
+            var paycheck = await _context.Paychecks.FirstOrDefaultAsync(x => x.Id == id && x.UserId == _currentUserService.UserId);
+            if (paycheck == null)
+                throw new NotFoundException("Paycheck not found.");
+            _context.Paychecks.Remove(paycheck);   // DB cascade removes its expenses
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Paycheck {PaycheckId} deleted.", id);
+        }
     }
 }

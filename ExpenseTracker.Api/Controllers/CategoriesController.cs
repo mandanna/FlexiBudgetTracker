@@ -52,5 +52,28 @@ namespace ExpenseTracker.Api.Controllers
                 data = categories
             });
         }
+
+        [HttpPut("UpdateCategory")]
+        public async Task<IActionResult> UpdateCategory(int id, UpdateCategoryRequest request)
+        {
+            var updated = await _categoriesService.UpdateCategoryAsync(id, request);
+            return Ok(new ApiResponse<CategoryResponse>
+            {
+                success = true,
+                message = "Category updated successfully",
+                data = updated
+            });
+        }
+
+        [HttpDelete("DeleteCategory")]
+        public async Task<IActionResult> DeleteCategory(int id)
+        {
+            await _categoriesService.DeleteCategoryAsync(id);
+            return Ok(new ApiResponse<string>
+            {
+                success = true,
+                message = "Category deleted successfully"
+            });
+        }
     }
 }

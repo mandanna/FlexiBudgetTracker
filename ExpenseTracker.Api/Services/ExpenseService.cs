@@ -22,10 +22,11 @@ namespace ExpenseTracker.Api.Services
         public async Task<ExpenseResponse?> CreateExpenseAsync(int paycheckId, CreateExpenseRequest createExpenseRequest)
         {
             var paycheck = await _context.Paychecks.FirstOrDefaultAsync(x=>x.Id==paycheckId && x.UserId==_currentUserService.UserId);
-            if (paycheck == null || paycheck.IsClosed)
-            {
-                return null; // Paycheck not found or is closed, cannot add expense
-            }
+            if (paycheck == null)
+                throw new NotFoundException($"Paycheck with ID {paycheckId} not found for the current user.");
+            if (paycheck.IsClosed)
+                throw new BusinessRuleException("Cannot add expense to a closed paycheck.");
+
             var existingExpensesTotal = await _context.Expenses.Where(x => x.PaycheckId == paycheckId).SumAsync(x => x.Amount);
             if (createExpenseRequest.Amount > (paycheck.Amount - existingExpensesTotal))
             {
@@ -56,14 +57,20 @@ namespace ExpenseTracker.Api.Services
         public async Task<ExpenseResponse?> UpdateExpenseAsync(int paycheckId,int expenseId, UpdateExpenseRequest updateExpenseRequest) {
 
             var paycheck = await _context.Paychecks.FirstOrDefaultAsync(x => x.Id == paycheckId && x.UserId == _currentUserService.UserId);
-            if (paycheck == null || paycheck.IsClosed)
-            {
-                return null; // Paycheck not found or is closed, cannot edit expense
-            }
+
+            if (paycheck == null)
+                throw new NotFoundException($"Paycheck with ID {paycheckId} not found for the current user.");
+            if (paycheck.IsClosed)
+                throw new BusinessRuleException("Cannot add expense to a closed paycheck.");
             var expense = await _context.Expenses.FindAsync(expenseId);
+
             if (expense == null || expense.PaycheckId != paycheckId)
+                throw new NotFoundException("Expense not found.");
+
+            var existingExpensesTotal = await _context.Expenses.Where(x => x.PaycheckId == paycheckId).SumAsync(x => x.Amount);
+            if (updateExpenseRequest.Amount > (paycheck.Amount - existingExpensesTotal))
             {
-                return null; // Expense not found or does not belong to the specified paycheck
+                throw new BusinessRuleException("Expense amount exceeds the remaining paycheck balance.");
             }
             expense.Description = updateExpenseRequest.Description;
             expense.Amount = updateExpenseRequest.Amount;

@@ -15,6 +15,10 @@ namespace ExpenseTracker.Api.Data
         public DbSet<User>Users { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            modelBuilder.Entity<User>().HasIndex(u => u.Email).IsUnique();
+
+            modelBuilder.Entity<Category>().HasIndex(c =>new {c.UserId,c.Name }).IsUnique();
+
             modelBuilder.Entity<Expense>()
                 .HasOne(x => x.Category)
                 .WithMany(x => x.Expenses)

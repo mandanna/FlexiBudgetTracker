@@ -11,17 +11,18 @@ namespace ExpenseTracker.Api.Controllers
     public class PaychecksController : ControllerBase
     {
         private readonly IPaycheckService _paycheckService;
-        
-        public PaychecksController(IPaycheckService paycheckService, IValidator<CreateExpenseRequest> createExpenseValidator) {
+
+        public PaychecksController(IPaycheckService paycheckService, IValidator<CreateExpenseRequest> createExpenseValidator)
+        {
             _paycheckService = paycheckService;
-           
-        } 
+
+        }
 
         [Authorize]
         [HttpPost("CreatePaycheck")]
         public async Task<IActionResult> CreatePaycheck(CreatePaycheckRequest createPaycheckRequest)
         {
-         
+
             var paycheck = await _paycheckService.CreatePaycheckAsync(createPaycheckRequest);
             return Ok(new ApiResponse<PaycheckResponse>
             {
@@ -84,18 +85,36 @@ namespace ExpenseTracker.Api.Controllers
             var summary = await _paycheckService.GetSummaryAsync(paycheckId);
             if (summary == null) return NotFound(new ApiResponse<PaycheckSummaryResponse>
             {
-                success = false,
+                success = false,        
                 message = "Paycheck not found",
                 data = null
             });
             return Ok(new ApiResponse<PaycheckSummaryResponse>
-            {
+            {   
                 success = true,
                 message = "Paycheck summary retrieved successfully",
                 data = summary
             });
         }
 
+        [HttpPut("UpdatePaycheck")]
+        public async Task<IActionResult> UpdatePaycheck(int id, UpdatePaycheckRequest request)
+        {
+            var updated = await _paycheckService.UpdatePaycheckAsync(id, request);
+            return Ok(new ApiResponse<PaycheckResponse>
+            {
+                success = true,
+                message = "Paycheck updated successfully",
+                data = updated
+            });
+
+        }
+        [HttpDelete("DeletePaycheck")]
+        public async Task<IActionResult> DeletePaycheck(int id)
+        {
+            await _paycheckService.DeletePaycheckAsync(id);
+            return Ok(new ApiResponse<string> { success = true, message = "Paycheck deleted successfully" });
+        }
 
     }
 }

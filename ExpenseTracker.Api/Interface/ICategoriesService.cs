@@ -6,5 +6,7 @@ namespace ExpenseTracker.Api.Interface
     {
         Task<CategoryResponse?> CreateCategoryAsync(CreateCategoryRequest request);
         Task<List<CategoryResponse>> GetCategoriesAsync();
+        Task<CategoryResponse> UpdateCategoryAsync(int id, UpdateCategoryRequest request);
+        Task DeleteCategoryAsync(int id);
     }
 }

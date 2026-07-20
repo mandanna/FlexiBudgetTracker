@@ -76,7 +76,15 @@ namespace ExpenseTracker.Api.Services
                 PasswordHash = _passwordHasher.HashPassword(request.Password)
             };
             await _context.AddAsync(user);
-            await _context.SaveChangesAsync();
+            try
+            {
+
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                throw new ConflictException("An account with this email already exists.");
+            }
 
             _logger.LogInformation("New user registered with email: {Email}", user.Email);
             return new UserResponse
