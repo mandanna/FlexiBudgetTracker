@@ -20,8 +20,8 @@ namespace ExpenseTracker.Api.Services
         public async Task<CategoryResponse?> CreateCategoryAsync(CreateCategoryRequest request)
         {
             var existingCategory = await _context.Categories
-                .FirstOrDefaultAsync(c => c.UserId == _currentUserService.UserId && c.Name.ToLower() == request.Name.ToLower());
-            if (existingCategory == null) return null;
+                .FirstOrDefaultAsync(c => c.UserId == _currentUserService.UserId && c.Name == request.Name.ToLower());
+            if (existingCategory != null) return null;
             var category = new Category
             {
                 Name = request.Name,
@@ -42,7 +42,7 @@ namespace ExpenseTracker.Api.Services
         }
         public async Task<List<CategoryResponse>> GetCategoriesAsync()
         {
-            return await _context.Categories.Where(c => c.UserId == _currentUserService.UserId)
+            return await _context.Categories.Where(c => c.UserId == _currentUserService.UserId || c.IsSystemCategory)
                 .Select(x => new CategoryResponse
                 {
                     Id = x.Id,
