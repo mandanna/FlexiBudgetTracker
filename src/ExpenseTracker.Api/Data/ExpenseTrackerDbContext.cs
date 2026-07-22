@@ -19,6 +19,10 @@ namespace ExpenseTracker.Api.Data
 
             modelBuilder.Entity<Category>().HasIndex(c =>new {c.UserId,c.Name }).IsUnique();
 
+            modelBuilder.Entity<Paycheck>().HasIndex(p => p.ReceivedDate);
+            modelBuilder.Entity<Paycheck>().HasIndex(p => p.IsClosed);
+            modelBuilder.Entity<Expense>().HasIndex(e=>e.ExpenseDate);
+
             modelBuilder.Entity<Expense>()
                 .HasOne(x => x.Category)
                 .WithMany(x => x.Expenses)
