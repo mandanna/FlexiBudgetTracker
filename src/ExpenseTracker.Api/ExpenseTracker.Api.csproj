@@ -7,13 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="ExpenseTracker.Api.Tests\**" />
-    <Content Remove="ExpenseTracker.Api.Tests\**" />
-    <EmbeddedResource Remove="ExpenseTracker.Api.Tests\**" />
-    <None Remove="ExpenseTracker.Api.Tests\**" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="FluentValidation" Version="12.1.1" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.28" />

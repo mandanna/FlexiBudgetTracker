@@ -8,7 +8,7 @@ The core idea: users create *future* paychecks and plan how that money will be a
 
 The goal throughout is production-ready architecture and coding standards — not just making the app work.
 
-All code currently lives under `ExpenseTracker.Api\` (the repo root has no other projects). It is a backend-only ASP.NET Core Web API; there is no frontend yet.
+The solution (`ExpenseTracker.sln`) lives at the repo root, with the API under `src\ExpenseTracker.Api\` and the xUnit test project under `tests\ExpenseTracker.Api.Tests\`. It is a backend-only ASP.NET Core Web API; there is no frontend yet.
 
 ## Technology Stack
 
@@ -45,7 +45,7 @@ This codebase is meant to demonstrate:
 
 ## Repo Layout
 
-Everything is inside `ExpenseTracker.Api\`:
+Repo root holds `ExpenseTracker.sln`, `src\`, `tests\`, and `.github\workflows\ci.yml`. The API project lives in `src\ExpenseTracker.Api\`; the paths below are relative to it:
 
 | Folder | Responsibility |
 |---|---|
@@ -61,7 +61,8 @@ Everything is inside `ExpenseTracker.Api\`:
 | `Exceptions/` | Custom exceptions (`NotFoundException`, `ConflictException`, `BusinessRuleException`) + `ExceptionHandling/GlobalExceptionHandler` |
 | `Middleware/` | `RequestLoggingMiddleware` |
 | `Migrations/` | EF Core Code First migrations |
-| `ExpenseTracker.Api.Tests/` | xUnit test project (separate `.csproj`, referenced via the solution) |
+
+The xUnit test project sits at the repo root under `tests\ExpenseTracker.Api.Tests\` (separate `.csproj`, references the API project, both included in `ExpenseTracker.sln`).
 
 ## Architecture
 
@@ -179,21 +180,20 @@ Naming conventions observed in the codebase:
 
 ## Build, Run, Test
 
-Run from `ExpenseTracker.Api\`:
+Run from the repo root:
 
 ```
-dotnet build ExpenseTracker.Api.sln
-dotnet run --project ExpenseTracker.Api.csproj
-dotnet test
+dotnet build ExpenseTracker.sln
+dotnet run --project src/ExpenseTracker.Api/ExpenseTracker.Api.csproj
+dotnet test ExpenseTracker.sln
 dotnet test --filter "FullyQualifiedName~PaycheckServiceTests.CreatePaycheckAsync_CreatesOpenPaycheck"   # single test
 dotnet test --filter "FullyQualifiedName~PaycheckServiceTests"                                            # single class
 ```
 
+- CI: `.github/workflows/ci.yml` runs `dotnet restore`/`build`/`test` on the solution for every push and PR to `main`.
 - Launch profiles (`Properties/launchSettings.json`) serve Swagger UI at `http://localhost:5041` (HTTP) or `https://localhost:7226` (HTTPS), with `ASPNETCORE_ENVIRONMENT=Development`.
-- EF Core migrations: `dotnet ef migrations add <Name>` / `dotnet ef database update`.
-- Test project (`ExpenseTracker.Api.Tests/`) uses `TestDbContextFactory.CreateContext()` for an EF Core InMemory context per test.
-
-**Known issue:** as of now, `ExpenseTracker.Api.Tests` does not compile — `PaycheckServiceTests.cs`, `ExpenseServiceTests.cs`, and `CategoriesServiceTests.cs` construct services with only a `DbContext` argument (e.g. `new PaycheckService(context)`), but the real constructors also require `ICurrentUserService` and `ILogger<T>`. Fix the constructor calls (a fake `ICurrentUserService` returning a fixed `UserId`, plus `NullLogger<T>.Instance`) before trusting `dotnet test` output.
+- EF Core migrations (run from the API project dir): `dotnet ef migrations add <Name>` / `dotnet ef database update`.
+- Test project (`tests/ExpenseTracker.Api.Tests/`) uses `TestDbContextFactory.CreateContext()` for an EF Core InMemory context per test, and `FakeCurrentUserService` (settable `UserId`, default 1) + `NullLogger<T>.Instance` to construct services. Note: the InMemory provider can't emulate SQL Server's case-insensitive collation or FK cascade behavior — cover those with SQLite in-memory or Testcontainers instead.
 
 ## Configuration
 
