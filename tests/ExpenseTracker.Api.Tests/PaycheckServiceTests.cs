@@ -1,6 +1,8 @@
 using ExpenseTracker.Api.Dtos;
+using ExpenseTracker.Api.Exceptions;
 using ExpenseTracker.Api.Models;
 using ExpenseTracker.Api.Services;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ExpenseTracker.Api.Tests;
 
@@ -10,7 +12,7 @@ public class PaycheckServiceTests
     public async Task CreatePaycheckAsync_CreatesOpenPaycheck()
     {
         using var context = TestDbContextFactory.CreateContext();
-        var service = new PaycheckService(context);
+        var service = new PaycheckService(context, new FakeCurrentUserService(userId: 1), NullLogger<PaycheckService>.Instance);
 
         var result = await service.CreatePaycheckAsync(new CreatePaycheckRequest
         {
@@ -33,12 +35,13 @@ public class PaycheckServiceTests
         {
             Amount = 900m,
             Description = "Paycheck",
-            ReceivedDate = new DateTime(2026, 6, 1)
+            ReceivedDate = new DateTime(2026, 6, 1),
+            UserId = 1
         };
         context.Paychecks.Add(paycheck);
         await context.SaveChangesAsync();
 
-        var service = new PaycheckService(context);
+        var service = new PaycheckService(context, new FakeCurrentUserService(userId: 1), NullLogger<PaycheckService>.Instance);
 
         var result = await service.ClosePaycheck(paycheck.Id, true);
 
@@ -47,14 +50,104 @@ public class PaycheckServiceTests
     }
 
     [Fact]
+    public async Task ClosePaycheck_WhenReopening_SetsIsClosedFalse()
+    {
+        using var context = TestDbContextFactory.CreateContext();
+        var paycheck = new Paycheck
+        {
+            Amount = 900m,
+            Description = "Closed paycheck",
+            ReceivedDate = new DateTime(2026, 6, 1),
+            IsClosed = true,
+            UserId = 1
+        };
+        context.Paychecks.Add(paycheck);
+        await context.SaveChangesAsync();
+
+        var service = new PaycheckService(context, new FakeCurrentUserService(userId: 1), NullLogger<PaycheckService>.Instance);
+
+        var result = await service.ClosePaycheck(paycheck.Id, false);
+
+        Assert.True(result);
+        Assert.False(context.Paychecks.Single(x => x.Id == paycheck.Id).IsClosed);
+    }
+
+    [Fact]
     public async Task ClosePaycheck_WhenPaycheckDoesNotExist_ReturnsFalse()
     {
         using var context = TestDbContextFactory.CreateContext();
-        var service = new PaycheckService(context);
+        var service = new PaycheckService(context, new FakeCurrentUserService(userId: 1), NullLogger<PaycheckService>.Instance);
 
         var result = await service.ClosePaycheck(404, true);
 
         Assert.False(result);
+    }
+
+    [Fact]
+    public async Task ClosePaycheck_WhenPaycheckBelongsToAnotherUser_ReturnsFalse()
+    {
+        // Authorization boundary: user 1 cannot close user 2's paycheck.
+        using var context = TestDbContextFactory.CreateContext();
+        var paycheck = new Paycheck
+        {
+            Amount = 900m,
+            Description = "Someone else's paycheck",
+            ReceivedDate = new DateTime(2026, 6, 1),
+            UserId = 2
+        };
+        context.Paychecks.Add(paycheck);
+        await context.SaveChangesAsync();
+
+        var service = new PaycheckService(context, new FakeCurrentUserService(userId: 1), NullLogger<PaycheckService>.Instance);
+
+        var result = await service.ClosePaycheck(paycheck.Id, true);
+
+        Assert.False(result);
+        Assert.False(context.Paychecks.Single(x => x.Id == paycheck.Id).IsClosed);
+    }
+
+    [Fact]
+    public async Task GetPaycheckAsync_WhenExists_ReturnsPaycheck()
+    {
+        using var context = TestDbContextFactory.CreateContext();
+        var paycheck = new Paycheck
+        {
+            Amount = 1200m,
+            Description = "July paycheck",
+            ReceivedDate = new DateTime(2026, 7, 1),
+            UserId = 1
+        };
+        context.Paychecks.Add(paycheck);
+        await context.SaveChangesAsync();
+
+        var service = new PaycheckService(context, new FakeCurrentUserService(userId: 1), NullLogger<PaycheckService>.Instance);
+
+        var result = await service.GetPaycheckAsync(paycheck.Id);
+
+        Assert.NotNull(result);
+        Assert.Equal(paycheck.Id, result.Id);
+        Assert.Equal(1200m, result.Amount);
+        Assert.Equal("July paycheck", result.Description);
+    }
+
+    [Fact]
+    public async Task GetPaycheckAsync_WhenBelongsToAnotherUser_ThrowsNotFoundException()
+    {
+        // Authorization boundary: user 1 cannot read user 2's paycheck.
+        using var context = TestDbContextFactory.CreateContext();
+        var paycheck = new Paycheck
+        {
+            Amount = 1200m,
+            Description = "Someone else's paycheck",
+            ReceivedDate = new DateTime(2026, 7, 1),
+            UserId = 2
+        };
+        context.Paychecks.Add(paycheck);
+        await context.SaveChangesAsync();
+
+        var service = new PaycheckService(context, new FakeCurrentUserService(userId: 1), NullLogger<PaycheckService>.Instance);
+
+        await Assert.ThrowsAsync<NotFoundException>(() => service.GetPaycheckAsync(paycheck.Id));
     }
 
     [Fact]
@@ -65,7 +158,8 @@ public class PaycheckServiceTests
         {
             Amount = 1000m,
             Description = "Paycheck",
-            ReceivedDate = new DateTime(2026, 6, 1)
+            ReceivedDate = new DateTime(2026, 6, 1),
+            UserId = 1
         };
         context.Paychecks.Add(paycheck);
         context.Expenses.AddRange(
@@ -85,7 +179,7 @@ public class PaycheckServiceTests
             });
         await context.SaveChangesAsync();
 
-        var service = new PaycheckService(context);
+        var service = new PaycheckService(context, new FakeCurrentUserService(userId: 1), NullLogger<PaycheckService>.Instance);
 
         var summary = await service.GetSummaryAsync(paycheck.Id);
 
@@ -100,10 +194,149 @@ public class PaycheckServiceTests
     public async Task GetSummaryAsync_WhenPaycheckDoesNotExist_ReturnsNull()
     {
         using var context = TestDbContextFactory.CreateContext();
-        var service = new PaycheckService(context);
+        var service = new PaycheckService(context, new FakeCurrentUserService(userId: 1), NullLogger<PaycheckService>.Instance);
 
         var summary = await service.GetSummaryAsync(404);
 
         Assert.Null(summary);
+    }
+
+    [Fact]
+    public async Task GetSummaryAsync_WhenPaycheckBelongsToAnotherUser_ReturnsNull()
+    {
+        // Authorization boundary: a summary for another user's paycheck must not leak.
+        using var context = TestDbContextFactory.CreateContext();
+        var paycheck = new Paycheck
+        {
+            Amount = 1000m,
+            Description = "Someone else's paycheck",
+            ReceivedDate = new DateTime(2026, 6, 1),
+            UserId = 2
+        };
+        context.Paychecks.Add(paycheck);
+        await context.SaveChangesAsync();
+
+        var service = new PaycheckService(context, new FakeCurrentUserService(userId: 1), NullLogger<PaycheckService>.Instance);
+
+        var summary = await service.GetSummaryAsync(paycheck.Id);
+
+        Assert.Null(summary);
+    }
+
+    [Fact]
+    public async Task UpdatePaycheckAsync_WhenOpen_UpdatesFields()
+    {
+        using var context = TestDbContextFactory.CreateContext();
+        var paycheck = new Paycheck
+        {
+            Amount = 1000m,
+            Description = "Original",
+            ReceivedDate = new DateTime(2026, 6, 1),
+            UserId = 1
+        };
+        context.Paychecks.Add(paycheck);
+        await context.SaveChangesAsync();
+
+        var service = new PaycheckService(context, new FakeCurrentUserService(userId: 1), NullLogger<PaycheckService>.Instance);
+
+        var result = await service.UpdatePaycheckAsync(paycheck.Id, new UpdatePaycheckRequest
+        {
+            Amount = 1250m,
+            Description = "Revised",
+            ReceivedDate = new DateTime(2026, 6, 5)
+        });
+
+        Assert.Equal(1250m, result.Amount);
+        Assert.Equal("Revised", result.Description);
+        Assert.Equal(new DateTime(2026, 6, 5), result.ReceivedDate);
+    }
+
+    [Fact]
+    public async Task UpdatePaycheckAsync_WhenClosed_ThrowsBusinessRuleException()
+    {
+        using var context = TestDbContextFactory.CreateContext();
+        var paycheck = new Paycheck
+        {
+            Amount = 1000m,
+            Description = "Closed",
+            ReceivedDate = new DateTime(2026, 6, 1),
+            IsClosed = true,
+            UserId = 1
+        };
+        context.Paychecks.Add(paycheck);
+        await context.SaveChangesAsync();
+
+        var service = new PaycheckService(context, new FakeCurrentUserService(userId: 1), NullLogger<PaycheckService>.Instance);
+
+        await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            service.UpdatePaycheckAsync(paycheck.Id, new UpdatePaycheckRequest
+            {
+                Amount = 1250m,
+                Description = "Revised",
+                ReceivedDate = new DateTime(2026, 6, 5)
+            }));
+    }
+
+    [Fact]
+    public async Task UpdatePaycheckAsync_WhenAmountBelowRecordedExpenses_ThrowsBusinessRuleException()
+    {
+        using var context = TestDbContextFactory.CreateContext();
+        var paycheck = new Paycheck
+        {
+            Amount = 1000m,
+            Description = "Paycheck",
+            ReceivedDate = new DateTime(2026, 6, 1),
+            UserId = 1
+        };
+        context.Paychecks.Add(paycheck);
+        context.Expenses.Add(new Expense
+        {
+            Amount = 400m,
+            Description = "Already spent",
+            ExpenseDate = new DateTime(2026, 6, 2),
+            Paycheck = paycheck
+        });
+        await context.SaveChangesAsync();
+
+        var service = new PaycheckService(context, new FakeCurrentUserService(userId: 1), NullLogger<PaycheckService>.Instance);
+
+        // New amount (300) is below the 400 already recorded as expenses.
+        await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            service.UpdatePaycheckAsync(paycheck.Id, new UpdatePaycheckRequest
+            {
+                Amount = 300m,
+                Description = "Too low",
+                ReceivedDate = new DateTime(2026, 6, 5)
+            }));
+    }
+
+    [Fact]
+    public async Task DeletePaycheckAsync_WhenExists_RemovesPaycheck()
+    {
+        using var context = TestDbContextFactory.CreateContext();
+        var paycheck = new Paycheck
+        {
+            Amount = 1000m,
+            Description = "Delete me",
+            ReceivedDate = new DateTime(2026, 6, 1),
+            UserId = 1
+        };
+        context.Paychecks.Add(paycheck);
+        await context.SaveChangesAsync();
+
+        var service = new PaycheckService(context, new FakeCurrentUserService(userId: 1), NullLogger<PaycheckService>.Instance);
+
+        await service.DeletePaycheckAsync(paycheck.Id);
+
+        Assert.Empty(context.Paychecks.Where(x => x.Id == paycheck.Id));
+    }
+
+    [Fact]
+    public async Task DeletePaycheckAsync_WhenNotFound_ThrowsNotFoundException()
+    {
+        using var context = TestDbContextFactory.CreateContext();
+        var service = new PaycheckService(context, new FakeCurrentUserService(userId: 1), NullLogger<PaycheckService>.Instance);
+
+        await Assert.ThrowsAsync<NotFoundException>(() => service.DeletePaycheckAsync(404));
     }
 }
