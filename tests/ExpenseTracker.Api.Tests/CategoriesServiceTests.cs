@@ -12,7 +12,7 @@ public class CategoriesServiceTests
     public async Task CreateCategoryAsync_WhenNameIsUnique_CreatesUserCategory()
     {
         using var context = TestDbContextFactory.CreateContext();
-        var service = new CategoriesService(context, new FakeCurrentUserService(userId: 1), NullLogger<CategoriesService>.Instance);
+        var service = new CategoriesService(context, new FakeCurrentUserService(userId: 1), NullLogger<CategoriesService>.Instance, new FakeCacheService());
 
         var result = await service.CreateCategoryAsync(new CreateCategoryRequest
         {
@@ -39,7 +39,7 @@ public class CategoriesServiceTests
         });
         await context.SaveChangesAsync();
 
-        var service = new CategoriesService(context, new FakeCurrentUserService(userId: 1), NullLogger<CategoriesService>.Instance);
+        var service = new CategoriesService(context, new FakeCurrentUserService(userId: 1), NullLogger<CategoriesService>.Instance, new FakeCacheService());
 
         var result = await service.CreateCategoryAsync(new CreateCategoryRequest
         {
@@ -53,7 +53,7 @@ public class CategoriesServiceTests
     public async Task GetCategoriesAsync_ReturnsSeededSystemCategories()
     {
         using var context = TestDbContextFactory.CreateContext();
-        var service = new CategoriesService(context, new FakeCurrentUserService(userId: 1), NullLogger<CategoriesService>.Instance);
+        var service = new CategoriesService(context, new FakeCurrentUserService(userId: 1), NullLogger<CategoriesService>.Instance, new FakeCacheService());
 
         var categories = await service.GetCategoriesAsync();
 
@@ -71,7 +71,7 @@ public class CategoriesServiceTests
             new Category { Name = "TheirCategory", IsSystemCategory = false, UserId = 2 });
         await context.SaveChangesAsync();
 
-        var service = new CategoriesService(context, new FakeCurrentUserService(userId: 1), NullLogger<CategoriesService>.Instance);
+        var service = new CategoriesService(context, new FakeCurrentUserService(userId: 1), NullLogger<CategoriesService>.Instance, new FakeCacheService());
 
         var categories = await service.GetCategoriesAsync();
 
@@ -85,7 +85,7 @@ public class CategoriesServiceTests
         // System categories (UserId == null) never match the ownership filter, so they're
         // protected from edits — the service reports them as not found for the current user.
         using var context = TestDbContextFactory.CreateContext();
-        var service = new CategoriesService(context, new FakeCurrentUserService(userId: 1), NullLogger<CategoriesService>.Instance);
+        var service = new CategoriesService(context, new FakeCurrentUserService(userId: 1), NullLogger<CategoriesService>.Instance, new FakeCacheService());
 
         // Id 1 is the seeded system "Food" category.
         await Assert.ThrowsAsync<NotFoundException>(() =>
@@ -96,7 +96,7 @@ public class CategoriesServiceTests
     public async Task DeleteCategoryAsync_WhenSystemCategory_ThrowsNotFoundException()
     {
         using var context = TestDbContextFactory.CreateContext();
-        var service = new CategoriesService(context, new FakeCurrentUserService(userId: 1), NullLogger<CategoriesService>.Instance);
+        var service = new CategoriesService(context, new FakeCurrentUserService(userId: 1), NullLogger<CategoriesService>.Instance, new FakeCacheService());
 
         // Id 1 is the seeded system "Food" category.
         await Assert.ThrowsAsync<NotFoundException>(() => service.DeleteCategoryAsync(1));
@@ -110,7 +110,7 @@ public class CategoriesServiceTests
         context.Categories.Add(category);
         await context.SaveChangesAsync();
 
-        var service = new CategoriesService(context, new FakeCurrentUserService(userId: 1), NullLogger<CategoriesService>.Instance);
+        var service = new CategoriesService(context, new FakeCurrentUserService(userId: 1), NullLogger<CategoriesService>.Instance, new FakeCacheService());
 
         var result = await service.UpdateCategoryAsync(category.Id, new UpdateCategoryRequest { Name = "Food & Drink" });
 

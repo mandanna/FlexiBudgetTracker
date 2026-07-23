@@ -12,14 +12,18 @@ namespace ExpenseTracker.Api.Services
         private readonly ExpenseTrackerDbContext _context;
         private readonly ICurrentUserService _currentUserService;
         private readonly ILogger<CategoriesService> _logger;
-        public CategoriesService(ExpenseTrackerDbContext context, ICurrentUserService currentUserService, ILogger<CategoriesService> logger)
+        private readonly ICacheService _cacheService;
+        private static string UserCacheKey(int userId) => $"categories:user:{userId}";
+        public CategoriesService(ExpenseTrackerDbContext context, ICurrentUserService currentUserService, ILogger<CategoriesService> logger, ICacheService cacheService)
         {
             _context = context;
             _currentUserService = currentUserService;
             _logger = logger;
+            _cacheService = cacheService;
         }
         public async Task<CategoryResponse?> CreateCategoryAsync(CreateCategoryRequest request)
         {
+
             var existingCategory = await _context.Categories
                 .FirstOrDefaultAsync(c => c.UserId == _currentUserService.UserId && c.Name.ToLower() == request.Name.ToLower());
             if (existingCategory != null) return null;
@@ -33,12 +37,13 @@ namespace ExpenseTracker.Api.Services
             try
             {
                 await _context.SaveChangesAsync();
+                
             }
             catch (DbUpdateException)
             {
                 throw new ConflictException("A category with this name already exists.");
             }
-
+            await _cacheService.RemoveAsync(UserCacheKey(_currentUserService.UserId));
             _logger.LogInformation("Category {CategoryId} created.", category.Id);
             return new CategoryResponse
             {
@@ -50,14 +55,30 @@ namespace ExpenseTracker.Api.Services
         }
         public async Task<List<CategoryResponse>> GetCategoriesAsync()
         {
-            return await _context.Categories.Where(c => c.UserId == _currentUserService.UserId || c.IsSystemCategory)
-                .Select(x => new CategoryResponse
+            var userId = _currentUserService.UserId;
+            var systemcategories =await _cacheService.GetOrCreateAsync("categories:system",
+               async () =>
+                   await _context.Categories.Where(c => c.IsSystemCategory).Select(c => new CategoryResponse
+                   {
+                       Id = c.Id,
+                       Name = c.Name,
+                       IsSystemCategory = c.IsSystemCategory
+                   }).ToListAsync());
+
+
+            var userCategories=await _cacheService.GetOrCreateAsync(UserCacheKey(userId),
+                async () => 
+                await _context.Categories.Where(c => c.UserId == userId).Select(c => new CategoryResponse
                 {
-                    Id = x.Id,
-                    Name = x.Name,
-                    IsSystemCategory = x.IsSystemCategory
-                })
-                .ToListAsync();
+                    Id = c.Id,
+                    Name = c.Name,
+                    IsSystemCategory = c.IsSystemCategory
+
+                }).ToListAsync()
+                );
+
+            return systemcategories.Concat(userCategories).ToList();
+
         }
 
         public async Task<CategoryResponse> UpdateCategoryAsync(int id, UpdateCategoryRequest request)
@@ -78,7 +99,7 @@ namespace ExpenseTracker.Api.Services
             {
                 throw new ConflictException("A category with this name already exists.");
             }
-
+            await _cacheService.RemoveAsync(UserCacheKey(_currentUserService.UserId));
             _logger.LogInformation("Category {CategoryId} updated.", category.Id);
             return new CategoryResponse
             {
@@ -97,6 +118,7 @@ namespace ExpenseTracker.Api.Services
 
             _context.Categories.Remove(category);   // expenses keep; their CategoryId → null (SetNull)
             await _context.SaveChangesAsync();
+            await _cacheService.RemoveAsync(UserCacheKey(_currentUserService.UserId));
 
             _logger.LogInformation("Category {CategoryId} deleted.", id);
         }
