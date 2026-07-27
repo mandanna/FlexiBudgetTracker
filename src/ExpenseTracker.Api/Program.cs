@@ -46,6 +46,8 @@ builder.Services.AddScoped<IPasswordHasherService, PasswordHasherService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<IIncomeService, IncomeService>();
 
 builder.Services.AddScoped<ICacheService, CacheService>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

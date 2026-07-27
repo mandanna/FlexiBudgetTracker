@@ -14,11 +14,11 @@ public class ExpenseServiceTests
         using var context = TestDbContextFactory.CreateContext();
         var paycheck = new Paycheck
         {
-            Amount = 1000m,
             Description = "June first half",
             ReceivedDate = new DateTime(2026, 6, 15),
             UserId = 1
         };
+        context.Incomes.Add(new Income { Amount = 1000m, Source = "Salary", ReceivedDate = new DateTime(2026, 6, 15), Paycheck = paycheck });
         context.Paychecks.Add(paycheck);
         await context.SaveChangesAsync();
 
@@ -44,7 +44,6 @@ public class ExpenseServiceTests
         using var context = TestDbContextFactory.CreateContext();
         var paycheck = new Paycheck
         {
-            Amount = 500m,
             Description = "Closed check",
             ReceivedDate = new DateTime(2026, 6, 1),
             IsClosed = true,
@@ -70,11 +69,11 @@ public class ExpenseServiceTests
         using var context = TestDbContextFactory.CreateContext();
         var paycheck = new Paycheck
         {
-            Amount = 100m,
             Description = "Small check",
             ReceivedDate = new DateTime(2026, 6, 1),
             UserId = 1
         };
+        context.Incomes.Add(new Income { Amount = 100m, Source = "Salary", ReceivedDate = new DateTime(2026, 6, 1), Paycheck = paycheck });
         context.Paychecks.Add(paycheck);
         context.Expenses.Add(new Expense
         {
@@ -87,6 +86,7 @@ public class ExpenseServiceTests
 
         var service = new ExpenseService(context, new FakeCurrentUserService(userId: 1), NullLogger<ExpenseService>.Instance);
 
+        // income 100 - already-spent 75 = 25 left, so 30 must be rejected.
         await Assert.ThrowsAsync<BusinessRuleException>(() =>
             service.CreateExpenseAsync(paycheck.Id, new CreateExpenseRequest
             {
@@ -103,7 +103,6 @@ public class ExpenseServiceTests
         using var context = TestDbContextFactory.CreateContext();
         var paycheck = new Paycheck
         {
-            Amount = 1000m,
             Description = "Someone else's paycheck",
             ReceivedDate = new DateTime(2026, 6, 1),
             UserId = 2
@@ -128,7 +127,6 @@ public class ExpenseServiceTests
         using var context = TestDbContextFactory.CreateContext();
         var paycheck = new Paycheck
         {
-            Amount = 400m,
             Description = "Paycheck",
             ReceivedDate = new DateTime(2026, 6, 1),
             UserId = 1
@@ -141,6 +139,7 @@ public class ExpenseServiceTests
             Paycheck = paycheck,
             CategoryId = 1
         };
+        context.Incomes.Add(new Income { Amount = 400m, Source = "Salary", ReceivedDate = new DateTime(2026, 6, 1), Paycheck = paycheck });
         context.AddRange(paycheck, expense);
         await context.SaveChangesAsync();
 
@@ -166,7 +165,6 @@ public class ExpenseServiceTests
         using var context = TestDbContextFactory.CreateContext();
         var paycheck = new Paycheck
         {
-            Amount = 400m,
             Description = "Closed paycheck",
             ReceivedDate = new DateTime(2026, 6, 1),
             IsClosed = true,
@@ -200,7 +198,6 @@ public class ExpenseServiceTests
         using var context = TestDbContextFactory.CreateContext();
         var paycheck = new Paycheck
         {
-            Amount = 500m,
             Description = "Someone else's paycheck",
             ReceivedDate = new DateTime(2026, 6, 1),
             UserId = 2
@@ -228,7 +225,6 @@ public class ExpenseServiceTests
         using var context = TestDbContextFactory.CreateContext();
         var paycheck = new Paycheck
         {
-            Amount = 300m,
             Description = "Paycheck",
             ReceivedDate = new DateTime(2026, 6, 1),
             UserId = 1
@@ -257,7 +253,6 @@ public class ExpenseServiceTests
         using var context = TestDbContextFactory.CreateContext();
         var paycheck = new Paycheck
         {
-            Amount = 300m,
             Description = "Paycheck",
             ReceivedDate = new DateTime(2026, 6, 1),
             UserId = 1

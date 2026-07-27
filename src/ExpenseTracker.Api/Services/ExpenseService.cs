@@ -26,9 +26,9 @@ namespace ExpenseTracker.Api.Services
                 throw new NotFoundException($"Paycheck with ID {paycheckId} not found for the current user.");
             if (paycheck.IsClosed)
                 throw new BusinessRuleException("Cannot add expense to a closed paycheck.");
-
+            var totalIncome = await _context.Incomes.Where(x => x.PaycheckId == paycheckId).SumAsync(x => x.Amount);
             var existingExpensesTotal = await _context.Expenses.Where(x => x.PaycheckId == paycheckId).SumAsync(x => x.Amount);
-            if (createExpenseRequest.Amount > (paycheck.Amount - existingExpensesTotal))
+            if (createExpenseRequest.Amount > (totalIncome - existingExpensesTotal))
             {
                 throw new BusinessRuleException("Expense amount exceeds the remaining paycheck balance.");
             }
@@ -67,8 +67,9 @@ namespace ExpenseTracker.Api.Services
             if (expense == null || expense.PaycheckId != paycheckId)
                 throw new NotFoundException("Expense not found.");
 
+            var totalIncome = await _context.Incomes.Where(x => x.PaycheckId == paycheckId).SumAsync(x => x.Amount);
             var existingExpensesTotal = await _context.Expenses.Where(x => x.PaycheckId == paycheckId).SumAsync(x => x.Amount);
-            if (updateExpenseRequest.Amount > (paycheck.Amount - existingExpensesTotal))
+            if (updateExpenseRequest.Amount > (totalIncome - existingExpensesTotal))
             {
                 throw new BusinessRuleException("Expense amount exceeds the remaining paycheck balance.");
             }

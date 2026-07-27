@@ -38,11 +38,23 @@ namespace ExpenseTracker.Api.Services
             var paycheck = new Paycheck
             {
                 Description = request.Description,
-                Amount = request.Amount,
                 ReceivedDate = request.ReceivedDate,
                 IsClosed = false,
-                UserId = _currentUserService.UserId
+                UserId = _currentUserService.UserId,               
             };
+
+            if (request.IncomesToCreate is not null)
+            {
+                foreach (var income in request.IncomesToCreate)
+                {
+                    paycheck.Incomes.Add(new Income
+                    {
+                        Source = income.Source,
+                        Amount = income.Amount,
+                        ReceivedDate = income.ReceivedDate,
+                    });
+                }
+            }
 
             _context.Paychecks.Add(paycheck);
 
@@ -51,9 +63,9 @@ namespace ExpenseTracker.Api.Services
 
             return new PaycheckResponse
             {
-                Amount = paycheck.Amount,
-                Description = paycheck.Description,
                 Id = paycheck.Id,
+                TotalIncome = paycheck.Incomes.Sum(x=>x.Amount),
+                Description = paycheck.Description,
                 ReceivedDate = paycheck.ReceivedDate,
                 IsClosed = paycheck.IsClosed
             };
@@ -63,9 +75,10 @@ namespace ExpenseTracker.Api.Services
             var paycheck = await _context.Paychecks.FirstOrDefaultAsync(x => x.Id == id && x.UserId == _currentUserService.UserId);
             if (paycheck == null) throw new NotFoundException("Paycheck not found.");
 
+            var totalIncome = await _context.Incomes.Where(i => i.PaycheckId == id).SumAsync(i => i.Amount);
             return new PaycheckResponse
             {
-                Amount = paycheck.Amount,
+                TotalIncome = totalIncome,
                 Description = paycheck.Description,
                 Id = paycheck.Id,
                 ReceivedDate = paycheck.ReceivedDate,
@@ -73,32 +86,7 @@ namespace ExpenseTracker.Api.Services
             };
         }
 
-        public async Task<List<PaycheckDetailsResponse>> GetDashboardAsync()
-        {
-            return await _context.Paychecks.Where(x=>x.UserId==_currentUserService.UserId).Select(x => new PaycheckDetailsResponse()
-            {
-                Amount = x.Amount,
-                ReceivedDate = x.ReceivedDate,
-                Description = x.Description,
-                Id = x.Id,
-                IsClosed = x.IsClosed,
-
-                ExpenseCount = x.Expenses.Count,
-                TotalExpenses = x.Expenses.Sum(x => x.Amount),
-                RemainingBalance = x.Amount - x.Expenses.Sum(x => x.Amount),
-                Expenses = x.Expenses.Select(e => new ExpenseResponse
-                {
-                    Amount = e.Amount,
-                    Description = e.Description,
-                    Id = e.Id,
-                    CategoryId = e.CategoryId,
-                    ExpenseDate = e.ExpenseDate,
-                    PaycheckId = e.PaycheckId,
-                    CategoryName = e.Category != null ? e.Category.Name : "Uncategorized",
-                }).ToList()
-
-            }).ToListAsync();
-        }
+        
 
         public async Task<PagedResponse<PaycheckResponse>> GetPaychecksAsync(PaycheckQueryRequest request)
         {
@@ -131,7 +119,7 @@ namespace ExpenseTracker.Api.Services
                 .Select(x => new PaycheckResponse
                 {
                     Id = x.Id,
-                    Amount = x.Amount,
+                    TotalIncome = x.Incomes.Sum(i => i.Amount),
                     Description = x.Description,
                     ReceivedDate = x.ReceivedDate,
                     IsClosed = x.IsClosed
@@ -162,7 +150,7 @@ namespace ExpenseTracker.Api.Services
             // they get here; the default branch orders by newest paycheck first.
             return sortBy?.Trim().ToLowerInvariant() switch
             {
-                "amount" => descending ? query.OrderByDescending(x => x.Amount) : query.OrderBy(x => x.Amount),
+                "amount" => descending ? query.OrderByDescending(x => x.Incomes.Sum(i => i.Amount)) : query.OrderBy(x => x.Incomes.Sum(i => i.Amount)),
                 "description" => descending ? query.OrderByDescending(x => x.Description) : query.OrderBy(x => x.Description),
                 "isclosed" => descending ? query.OrderByDescending(x => x.IsClosed) : query.OrderBy(x => x.IsClosed),
                 "receiveddate" => descending ? query.OrderByDescending(x => x.ReceivedDate) : query.OrderBy(x => x.ReceivedDate),
@@ -172,14 +160,18 @@ namespace ExpenseTracker.Api.Services
 
         public async Task<PaycheckSummaryResponse?> GetSummaryAsync(int paycheckId)
         {
-            var paycheck = await _context.Paychecks.Include(x => x.Expenses).FirstOrDefaultAsync(x => x.Id == paycheckId && x.UserId==_currentUserService.UserId);
+            var paycheck = await _context.Paychecks
+                .Include(x => x.Expenses)
+                .Include(x=>x.Incomes)
+                .FirstOrDefaultAsync(x => x.Id == paycheckId && x.UserId==_currentUserService.UserId);
             if (paycheck == null) return null;
+            var totalIncome = paycheck.Incomes.Sum(x => x.Amount);
             var totalExpense = paycheck.Expenses.Sum(x => x.Amount);
             return new PaycheckSummaryResponse
             {
-                PaycheckAmount = paycheck.Amount,
+                PaycheckAmount = totalIncome,
                 TotalExpenses = totalExpense,
-                RemainingBalance = paycheck.Amount - totalExpense,
+                RemainingBalance = totalIncome - totalExpense,
                 ExpenseCount = paycheck.Expenses.Count,
                 IsClosed = paycheck.IsClosed
             };
@@ -195,22 +187,17 @@ namespace ExpenseTracker.Api.Services
             if (paycheck.IsClosed)
                 throw new BusinessRuleException("Cannot modify a closed paycheck.");
 
-            var totalExpenses = await _context.Expenses.Where(e => e.PaycheckId == id).SumAsync(e => e.Amount);
-            if (request.Amount < totalExpenses)
-                throw new BusinessRuleException(
-                    $"Amount cannot be less than the expenses already recorded ({totalExpenses}).");
-
             paycheck.Description = request.Description;
-            paycheck.Amount = request.Amount;
             paycheck.ReceivedDate = request.ReceivedDate;
             await _context.SaveChangesAsync();
             _logger.LogInformation("Paycheck {PaycheckId} updated.", paycheck.Id);
 
+            var totalIncome = await _context.Incomes.Where(i => i.PaycheckId == id).SumAsync(i => i.Amount);
             return new PaycheckResponse
             {
                 Id = paycheck.Id,
                 Description = paycheck.Description,
-                Amount = paycheck.Amount,
+                TotalIncome = totalIncome,
                 ReceivedDate = paycheck.ReceivedDate,
                 IsClosed = paycheck.IsClosed
             };

@@ -10,7 +10,7 @@ namespace ExpenseTracker.Api.Interface
         Task<PagedResponse<PaycheckResponse>> GetPaychecksAsync(PaycheckQueryRequest request);
         Task<bool> ClosePaycheck(int paycheckId,bool toggle);
         Task<PaycheckSummaryResponse?> GetSummaryAsync(int paycheckId);
-        Task<List<PaycheckDetailsResponse>> GetDashboardAsync();
+        //Task<List<PaycheckDetailsResponse>> GetDashboardAsync();
 
         Task DeletePaycheckAsync(int id);
     }

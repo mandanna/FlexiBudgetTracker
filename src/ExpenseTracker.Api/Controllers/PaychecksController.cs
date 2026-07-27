@@ -20,6 +20,7 @@ namespace ExpenseTracker.Api.Controllers
 
         [Authorize]
         [HttpPost("CreatePaycheck")]
+        [ServiceFilter(typeof(ValidationFilter<CreatePaycheckRequest>))]
         public async Task<IActionResult> CreatePaycheck(CreatePaycheckRequest createPaycheckRequest)
         {
 

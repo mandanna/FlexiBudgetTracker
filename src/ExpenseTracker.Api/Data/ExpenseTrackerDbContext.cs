@@ -13,6 +13,7 @@ namespace ExpenseTracker.Api.Data
         public DbSet<Expense> Expenses { get; set; }
         public DbSet<Category> Categories { get; set; }
         public DbSet<User>Users { get; set; }
+        public DbSet<Income> Incomes { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<User>().HasIndex(u => u.Email).IsUnique();

@@ -11,11 +11,9 @@ namespace ExpenseTracker.Api.Controllers
     public class ExpensesController : ControllerBase
     {
         private readonly IExpenseService _expenseService;
-        private readonly IValidator<CreateExpenseRequest> _createExpenseValidator;
-        public ExpensesController(IExpenseService expenseService, IValidator<CreateExpenseRequest> createExpenseValidator)
+        public ExpensesController(IExpenseService expenseService)
         {
             _expenseService = expenseService;
-            _createExpenseValidator = createExpenseValidator;
         }
 
         [ServiceFilter(typeof(ValidationFilter<CreateExpenseRequest>))]
