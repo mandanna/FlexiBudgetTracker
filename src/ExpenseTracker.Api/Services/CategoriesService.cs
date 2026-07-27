@@ -1,5 +1,6 @@
 ﻿using ExpenseTracker.Api.Data;
 using ExpenseTracker.Api.Dtos;
+using ExpenseTracker.Api.Dtos.ResponseDtos.Category;
 using ExpenseTracker.Api.Exceptions;
 using ExpenseTracker.Api.Interface;
 using ExpenseTracker.Api.Models;

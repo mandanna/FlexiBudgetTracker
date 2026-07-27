@@ -1,5 +1,6 @@
 ﻿
 using ExpenseTracker.Api.Dtos;
+using ExpenseTracker.Api.Dtos.ResponseDtos.Category;
 using ExpenseTracker.Api.Interface;
 using ExpenseTracker.Api.Services;
 using Microsoft.AspNetCore.Http;

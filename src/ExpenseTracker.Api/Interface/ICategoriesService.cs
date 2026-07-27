@@ -1,4 +1,5 @@
 ﻿using ExpenseTracker.Api.Dtos;
+using ExpenseTracker.Api.Dtos.ResponseDtos.Category;
 
 namespace ExpenseTracker.Api.Interface
 {

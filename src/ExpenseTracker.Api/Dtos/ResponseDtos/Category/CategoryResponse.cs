@@ -1,4 +1,4 @@
-﻿namespace ExpenseTracker.Api.Dtos
+﻿namespace ExpenseTracker.Api.Dtos.ResponseDtos.Category
 {
     public class CategoryResponse
     {
