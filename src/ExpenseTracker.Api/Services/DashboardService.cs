@@ -1,55 +1,110 @@
 ﻿using ExpenseTracker.Api.Data;
 using ExpenseTracker.Api.Dtos;
-using ExpenseTracker.Api.Dtos.ResponseDtos;
+using ExpenseTracker.Api.Dtos.ResponseDtos.Category;
 using ExpenseTracker.Api.Interface;
 using Microsoft.EntityFrameworkCore;
 
 namespace ExpenseTracker.Api.Services
 {
-    public class DashboardService:IDashboardService
+    public class DashboardService : IDashboardService
     {
         private readonly ExpenseTrackerDbContext _context;
         private readonly ICurrentUserService _currentUserService;
-        public DashboardService(ExpenseTrackerDbContext context,ICurrentUserService currentUserService) {
-        
+        public DashboardService(ExpenseTrackerDbContext context, ICurrentUserService currentUserService)
+        {
+
             _context = context;
             _currentUserService = currentUserService;
         }
-        //public async Task<DashboardResponse> GetDashboardAsync()
-        //{
-        //    var dashboard = new DashboardResponse() { 
-        //    OpenPaycheckCount=await _context.Paychecks.CountAsync(x=> x.UserId == _currentUserService.UserId && !x.IsClosed),
-        //    PaycheckCount=await _context.Paychecks.CountAsync(x=> x.UserId == _currentUserService.UserId),
-        //    TotalPlannedIncome=await _context.Paychecks.Where(x=> x.UserId == _currentUserService.UserId).SumAsync(x=> x.Amount),
+        public async Task<DashboardResponse> GetDashboardAsync(DashboardQueryRequest request)
+        {
+            var userId = _currentUserService.UserId;
+            var today = DateTime.Today;
+
+            var paychecks = _context.Paychecks
+                .Where(p => p.UserId == userId);
+            if (request.PaycheckId.HasValue)
+            {
+                paychecks = paychecks.Where(p => p.Id == request.PaycheckId.Value);
+            }
+            else
+            {
+                if (request.FromDate.HasValue)
+                {
+                    paychecks = paychecks.Where(p => p.ReceivedDate >= request.FromDate.Value);
+                }
+                if (request.ToDate.HasValue)
+                {
+                    paychecks = paychecks.Where(p => p.ReceivedDate <= request.ToDate.Value);
+                }
+            }
+            var scopedIds = paychecks.Select(p => p.Id);
+            var settledIds = paychecks.Where(p => p.IsClosed).Select(p => p.Id);
+
+            var expenses = _context.Expenses
+                .Where(e => scopedIds.Contains(e.PaycheckId));
+
+            var settledIncome = await _context.Incomes
+                .Where(i => settledIds.Contains(i.PaycheckId))
+                .SumAsync(i => (decimal?)i.Amount) ?? 0m;
+
+            var settledSpent = await _context.Expenses
+                .Where(e => settledIds.Contains(e.PaycheckId))
+                .SumAsync(e => (decimal?)e.Amount) ?? 0m;
+
+            var settledCount = await paychecks.CountAsync(p => p.IsClosed);
+
+            var currentPaycheck = _context.Paychecks
+                .Where(x => !x.IsClosed)
+                .OrderBy(x => x.ReceivedDate)
+                .Select(p => new CurrentPaycheckResponse
+                {
+                    Description = p.Description,
+                    Id = p.Id,
+                    ReceivedDate = p.ReceivedDate,
+                    TotalIncome = p.Incomes.Sum(i => i.Amount),
+                    TotalSpent = p.Expenses.Sum(e => e.Amount),
+                    ProjectedSavings = p.Incomes.Sum(i => i.Amount) - p.Expenses.Sum(e => e.Amount),
+                    ExpenseCount = p.Expenses.Count
+                }).FirstOrDefault();
 
 
+            var recentExpenses = await expenses
+                .OrderByDescending(e => e.ExpenseDate)
+                .Take(5)
+                .Select(e => new ExpenseResponse
+                {
+                    Id = e.Id,
+                    Description = e.Description,
+                    Amount = e.Amount,
+                    ExpenseDate = e.ExpenseDate,
+                    PaycheckId = e.PaycheckId,
+                    CategoryId = e.CategoryId,
+                    CategoryName = e.Category != null ? e.Category.Name : "Uncategorized"
+                })
+                .ToListAsync();
 
-
-        //    };
-
-        //    var c= await _context.Paychecks.Where(x => x.UserId == _currentUserService.UserId).Select(x => new PaycheckDetailsResponse()
-        //    {
-        //        Amount = x.Amount,
-        //        ReceivedDate = x.ReceivedDate,
-        //        Description = x.Description,
-        //        Id = x.Id,
-        //        IsClosed = x.IsClosed,
-
-        //        ExpenseCount = x.Expenses.Count,
-        //        TotalExpenses = x.Expenses.Sum(x => x.Amount),
-        //        RemainingBalance = x.Amount - x.Expenses.Sum(x => x.Amount),
-        //        Expenses = x.Expenses.Select(e => new ExpenseResponse
-        //        {
-        //            Amount = e.Amount,
-        //            Description = e.Description,
-        //            Id = e.Id,
-        //            CategoryId = e.CategoryId,
-        //            ExpenseDate = e.ExpenseDate,
-        //            PaycheckId = e.PaycheckId,
-        //            CategoryName = e.Category != null ? e.Category.Name : "Uncategorized",
-        //        }).ToList()
-
-        //    }).ToListAsync();
-        //}
+            var spendingByCategory = await expenses
+                .GroupBy(e => new { e.CategoryId, CategoryName = e.Category != null ? e.Category.Name : "Uncategorized" })
+                .Select(g => new CategorySpendingResponse
+                {
+                    CategoryId = g.Key.CategoryId,
+                    CategoryName = g.Key.CategoryName,
+                    TotalAmount = g.Sum(e => e.Amount),
+                    ExpenseCount = g.Count()
+                })
+                .OrderByDescending(c => c.TotalAmount)
+                .ToListAsync();
+            return new DashboardResponse
+            {
+                SettledIncome = settledIncome,
+                SettledSpent = settledSpent,
+                SettledSavings = settledIncome - settledSpent,
+                SettledPaycheckCount = settledCount,
+                CurrentPaycheck = currentPaycheck,
+                RecentExpenses = recentExpenses,
+                SpendingByCategory = spendingByCategory
+            };
+        }
     }
 }

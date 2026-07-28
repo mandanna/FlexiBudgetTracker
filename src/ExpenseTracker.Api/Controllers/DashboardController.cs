@@ -1,4 +1,6 @@
-﻿using ExpenseTracker.Api.Dtos;
+﻿using Azure.Core;
+using ExpenseTracker.Api.Dtos;
+using ExpenseTracker.Api.Interface;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,24 +10,32 @@ namespace ExpenseTracker.Api.Controllers
     [ApiController]
     public class DashboardController : ControllerBase
     {
+        private readonly IDashboardService _dashboardService;
 
-        public DashboardController() { }
+        public DashboardController(IDashboardService dashboardService)=> _dashboardService = dashboardService;
 
-        //public async Task<IActionResult> GetDashboardData()
-        //{
-        //    // Implement logic to retrieve dashboard data
-        //    var dashboardData = new
-        //    {
-        //        TotalExpenses = 1000,
-        //        TotalIncome = 2000,
-        //        NetBalance = 1000
-        //    };
-        //    return Ok(new ApiResponse<object>
-        //    {
-        //        success = true,
-        //        message = "Dashboard data retrieved successfully",
-        //        data = dashboardData
-        //    });
-        //}
+        [HttpGet]
+        [ServiceFilter(typeof(ValidationFilter<DashboardQueryRequest>))]
+        public async Task<IActionResult> GetDashboardData([FromQuery] DashboardQueryRequest request)
+        {
+
+            var dashboardData = await _dashboardService.GetDashboardAsync(request);
+            if (dashboardData == null)
+            {
+                return NotFound(new ApiResponse<DashboardResponse>
+                {
+                    success = false,
+                    message = "Dashboard data not found",
+                    data = null
+                });
+            }
+            return Ok(new ApiResponse<DashboardResponse>
+            {
+                success = true,
+                message = "Dashboard data retrieved successfully",
+                data = dashboardData
+            });
+
+        }
     }
 }

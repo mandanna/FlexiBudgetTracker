@@ -4,7 +4,7 @@
     {
         public int? CategoryId { get; set; }
         public string CategoryName { get; set; } = "Uncategorized";
-        public decimal TotalAmount { get; set; }
+        public decimal? TotalAmount { get; set; }
         public int ExpenseCount { get; set; }
     }
 }

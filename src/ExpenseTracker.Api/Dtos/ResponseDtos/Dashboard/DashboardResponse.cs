@@ -4,13 +4,13 @@ namespace ExpenseTracker.Api.Dtos
 {
     public class DashboardResponse
     {
-        public decimal TotalPlannedIncome { get; set; }
-        public decimal TotalSpent { get; set; }
-        public decimal TotalRemaining { get; set; }
-        public int PaycheckCount { get; set; }
-        public int OpenPaycheckCount { get; set; }
 
-        public List<PaycheckResponse> UpcomingPaychecks { get; set; } = new();
+        public decimal SettledIncome { get; set; }
+        public decimal SettledSpent { get; set; }
+        public decimal SettledSavings { get; set; }
+        public int SettledPaycheckCount { get; set; }
+
+        public CurrentPaycheckResponse? CurrentPaycheck { get; set; }
         public List<ExpenseResponse> RecentExpenses { get; set; } = new();
         public List<CategorySpendingResponse> SpendingByCategory { get; set; } = new();
     }

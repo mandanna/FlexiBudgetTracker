@@ -4,6 +4,6 @@ namespace ExpenseTracker.Api.Interface
 {
     public interface IDashboardService
     {
-        //Task<DashboardResponse> GetDashboardAsync();
+        Task<DashboardResponse> GetDashboardAsync(DashboardQueryRequest request);
     }
 }
