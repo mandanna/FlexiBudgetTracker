@@ -1,31 +1,33 @@
+using Azure.Extensions.AspNetCore.Configuration.Secrets;
+using Azure.Identity;
 using ExpenseTracker.Api.Data;
 using ExpenseTracker.Api.Dtos;
 using ExpenseTracker.Api.Exceptions.ExceptionHandling;
+using ExpenseTracker.Api.Extensions;
 using ExpenseTracker.Api.Interface;
 using ExpenseTracker.Api.Middleware;
 using ExpenseTracker.Api.Services;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using System.Text;
 using Serilog;
-using Azure.Identity;
-using Azure.Extensions.AspNetCore.Configuration.Secrets;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Production secrets: load from Azure Key Vault when a vault URI is configured.
 
-var keyVaultUri = builder.Configuration["KeyVault:Uri"];
-if (!string.IsNullOrWhiteSpace(keyVaultUri))
-{
-    builder.Configuration.AddAzureKeyVault(
-        new Uri(keyVaultUri),
-        new DefaultAzureCredential());
-}
+//var keyVaultUri = builder.Configuration["KeyVault:Uri"];
+//if (!string.IsNullOrWhiteSpace(keyVaultUri))
+//{
+//    builder.Configuration.AddAzureKeyVault(
+//        new Uri(keyVaultUri),
+//        new DefaultAzureCredential());
+//}
 
 builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
@@ -77,6 +79,19 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
         };
+        // Read the JWT from the httpOnly cookie (falls back to the header if no cookie)
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var token = context.Request.Cookies["token"];
+                if (!string.IsNullOrEmpty(token))
+                {
+                    context.Token = token;
+                }
+                return Task.CompletedTask;
+            }
+        };
     });
 builder.Services.AddSwaggerGen(options =>
 {
@@ -111,11 +126,36 @@ builder.Services.AddAuthorization();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var fieldErrors = context.ModelState
+            .Where(entry => entry.Value?.Errors.Count > 0)
+            .GroupBy(entry => entry.Key.Replace("$.", "").ToCamelCasePath())
+            .ToDictionary(g => g.Key, g => new[] { "Invalid or missing value." });
+
+        return new BadRequestObjectResult(new ApiResponse<Dictionary<string, string[]>>
+        {
+            success = false,
+            message = "Validation failed.",
+            data = fieldErrors
+        });
+    };
+});
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 
-
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
 
 
 
@@ -141,6 +181,7 @@ if (Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") != "true")
     app.UseHttpsRedirection();
 }
 
+app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 

@@ -38,7 +38,7 @@ namespace ExpenseTracker.Api.Services
             var paycheck = new Paycheck
             {
                 Description = request.Description,
-                ReceivedDate = request.ReceivedDate,
+                ReceivedDate = request.ReceivedDate?? DateTime.Now,
                 IsClosed = false,
                 UserId = _currentUserService.UserId,               
             };
@@ -51,7 +51,7 @@ namespace ExpenseTracker.Api.Services
                     {
                         Source = income.Source,
                         Amount = income.Amount,
-                        ReceivedDate = income.ReceivedDate,
+                        ReceivedDate = income.ReceivedDate ?? DateTime.Now,
                     });
                 }
             }

@@ -39,7 +39,7 @@ namespace ExpenseTracker.Api.Middleware
                     var statusCode = context.Response.StatusCode;
                     if (statusCode >= 500)
                     {
-                        _logger.LogError(
+                        _logger.LogWarning(
                             "Request completed with status {StatusCode} in {ElapsedMilliseconds} ms",
                             statusCode,
                             stopwatch.ElapsedMilliseconds);

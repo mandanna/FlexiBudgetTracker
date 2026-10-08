@@ -8,6 +8,7 @@ namespace ExpenseTracker.Api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class PaychecksController : ControllerBase
     {
         private readonly IPaycheckService _paycheckService;
@@ -18,9 +19,8 @@ namespace ExpenseTracker.Api.Controllers
 
         }
 
-        [Authorize]
-        [HttpPost("CreatePaycheck")]
         [ServiceFilter(typeof(ValidationFilter<CreatePaycheckRequest>))]
+        [HttpPost("CreatePaycheck")] 
         public async Task<IActionResult> CreatePaycheck(CreatePaycheckRequest createPaycheckRequest)
         {
 
@@ -32,7 +32,7 @@ namespace ExpenseTracker.Api.Controllers
                 data = paycheck
             });
         }
-        //[Authorize]
+
         [HttpGet("GetPaycheck")]
         public async Task<IActionResult> GetPaycheck(int id)
         {

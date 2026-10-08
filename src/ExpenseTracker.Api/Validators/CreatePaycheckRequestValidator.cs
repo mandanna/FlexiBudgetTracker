@@ -8,15 +8,15 @@ namespace ExpenseTracker.Api.Validators
         public CreatePaycheckRequestValidator()
         {
             RuleFor(x => x.Description)
-                .NotEmpty()
-                .MaximumLength(100).WithMessage("Description is required.");
+                .NotEmpty().WithMessage("Description is required.")
+                .MaximumLength(100).WithMessage("Description must be 100 characters or fewer.");
 
             RuleFor(x => x.ReceivedDate)
                 .NotEmpty().WithMessage("Received date is required.");
 
-            // Validate each income in the list by reusing the income validator.
-            RuleForEach(x => x.IncomesToCreate)
-                .SetValidator(new CreateIncomeRequestValidator());
+            //Validate each income in the list by reusing the income validator.
+           RuleForEach(x => x.IncomesToCreate)
+               .SetValidator(new CreateIncomeRequestValidator());
         }
     }
 }

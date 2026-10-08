@@ -7,5 +7,6 @@ namespace ExpenseTracker.Api.Interface
     {
         Task<UserResponse?> RegisterAsync(UserRegisterRequest request);
         Task<LoginResponse?> LoginAsync(Dtos.LoginRequest request);
+        Task<UserResponse?> GetByIdAsync(int userId);
     }
 }

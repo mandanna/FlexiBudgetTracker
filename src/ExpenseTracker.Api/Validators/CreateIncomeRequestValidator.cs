@@ -11,9 +11,8 @@ namespace ExpenseTracker.Api.Validators
                 .GreaterThan(0).WithMessage("Amount must be greater than 0.");
 
             RuleFor(x => x.Source)
-                .NotEmpty()
-                .MaximumLength(100)
-                .WithMessage("Source is required.");
+                 .NotEmpty().WithMessage("Source is required.")
+    .MaximumLength(100).WithMessage("Source must be 100 characters or fewer.");
 
             RuleFor(x => x.ReceivedDate)
                 .NotEmpty().WithMessage("Received date is required.");

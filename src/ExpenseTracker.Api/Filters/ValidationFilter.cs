@@ -1,4 +1,6 @@
-﻿using FluentValidation;
+﻿using ExpenseTracker.Api.Dtos;
+using ExpenseTracker.Api.Extensions;
+using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
@@ -25,7 +27,16 @@ public class ValidationFilter<T> : IAsyncActionFilter
 
         if (!validationResult.IsValid)
         {
-            context.Result = new BadRequestObjectResult(validationResult.Errors);
+            var fieldErrors = validationResult.Errors
+    .GroupBy(e => e.PropertyName.ToCamelCasePath())
+    .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray());
+
+            context.Result = new BadRequestObjectResult(new ApiResponse<Dictionary<string, string[]>>
+            {
+                success = false,
+                message = "Validation failed.",
+                data = fieldErrors
+            });
             return;
         }
 

@@ -18,6 +18,10 @@ namespace ExpenseTracker.Api.Validators
                  RuleFor(x => x.LastName)
                 .NotEmpty().WithMessage("Last Name is required");
 
+            RuleFor(x => x.ConfirmPassword)
+            .NotEmpty().WithMessage("Please confirm your password.")
+            .Equal(x => x.Password).WithMessage("Passwords do not match.");
+
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Diagnostics;
+﻿using ExpenseTracker.Api.Dtos;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 
 namespace ExpenseTracker.Api.Exceptions.ExceptionHandling
@@ -23,7 +24,9 @@ namespace ExpenseTracker.Api.Exceptions.ExceptionHandling
                 { InnerException: UnauthorizedAccessException } => (StatusCodes.Status401Unauthorized, "Authentication is required to access this resource.", LogLevel.Warning),
 
 
-                _ => (StatusCodes.Status500InternalServerError, "An unexpected error occurred (caught globally).\n" +exception.Message,LogLevel.Error)
+                _ => (StatusCodes.Status500InternalServerError,
+                "An unexpected error occurred (caught globally).\n",
+                LogLevel.Error)
 
 
             };
@@ -50,11 +53,11 @@ namespace ExpenseTracker.Api.Exceptions.ExceptionHandling
             httpContext.Response.StatusCode = statusCode;
 
             await httpContext.Response.WriteAsJsonAsync(
-                new
+                new ApiResponse<object?>
                 {
-                    Success = false,
-                    Message = message,
-                    TraceId = httpContext.TraceIdentifier
+                    success = false,
+                    message = message,
+                    data = null
                 },
                 cancellationToken);
 

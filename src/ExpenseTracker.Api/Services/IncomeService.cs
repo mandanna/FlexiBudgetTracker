@@ -31,7 +31,7 @@ namespace ExpenseTracker.Api.Services
             {
                 Source = request.Source,
                 Amount = request.Amount,
-                ReceivedDate = request.ReceivedDate,
+                ReceivedDate = request.ReceivedDate ?? DateTime.Now,
                 PaycheckId = paycheckId
             };
             _context.Incomes.Add(income);

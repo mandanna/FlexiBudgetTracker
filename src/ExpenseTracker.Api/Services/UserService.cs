@@ -58,7 +58,7 @@ namespace ExpenseTracker.Api.Services
                 };
             }
             catch (Exception ex) {
-                return null;
+               throw new Exception($"An error occurred during login: {ex.Message}", ex);
             }
 
         }
@@ -87,6 +87,20 @@ namespace ExpenseTracker.Api.Services
             }
 
             _logger.LogInformation("New user registered with email: {Email}", user.Email);
+            return new UserResponse
+            {
+                Id = user.Id,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Email = user.Email
+            };
+        }
+        public async Task<UserResponse?> GetByIdAsync(int userId)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(x => x.Id == userId);
+            if (user == null)
+                return null;
+
             return new UserResponse
             {
                 Id = user.Id,
